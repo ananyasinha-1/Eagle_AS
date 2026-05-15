@@ -79,12 +79,21 @@ def _make_det_frame(frame_id: int, boxes: list[list[float]]) -> DetectionFrameSc
     )
 
 
-def _make_mock_track(tid: int, ltwh: list[float], conf: float = 0.9):
+def _make_mock_track(
+    tid: int,
+    ltwh: list[float],
+    conf: float = 0.9,
+    embedding=None,
+):
     t = MagicMock()
     t.track_id   = tid
     t.is_confirmed.return_value = True
     t.to_ltwh.return_value      = np.array(ltwh)
     t.det_conf   = conf
+    if embedding is not None:
+        t.features = [embedding]
+    else:
+        t.features = []
     return t
 
 
@@ -313,3 +322,166 @@ def test_lifecycle_logging_integration(MockDeepSort, tmp_path):
     assert "zone" in birth_rec
     assert "track_id" in birth_rec
     assert birth_rec["track_id"] == 10
+
+@patch("services.tracking.tracker.DeepSort")
+def test_reid_restores_original_id(MockDeepSort):
+
+    from services.tracking.tracker import Tracker
+
+    mock_ds = MagicMock()
+    MockDeepSort.return_value = mock_ds
+    mock_ds.max_age = 30
+
+    tracker = Tracker(fps=30)
+    raw_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    embedding = np.array([0.1, 0.2, 0.3])
+
+    # Frame 0: original track
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            1,
+            [100, 80, 50, 120],
+            embedding=embedding,
+        )
+    ]
+
+    result1 = tracker.update(
+        _make_det_frame(0, [[100, 80, 150, 200]]),
+        raw_frame,
+    )
+
+    original_id = result1.tracks[0].track_id
+
+    # Frame 1: track disappears
+    mock_ds.update_tracks.return_value = []
+
+    tracker.update(
+        _make_det_frame(1, []),
+        raw_frame,
+    )
+
+    # Frame 2: same person reappears with NEW tracker ID
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            99,
+            [102, 82, 50, 120],
+            embedding=embedding,
+        )
+    ]
+
+    result2 = tracker.update(
+        _make_det_frame(2, [[102, 82, 152, 202]]),
+        raw_frame,
+    )
+
+    restored_id = result2.tracks[0].track_id
+
+    assert restored_id == original_id
+
+@patch("services.tracking.tracker.DeepSort")
+def test_reid_rejects_low_similarity(MockDeepSort):
+
+    from services.tracking.tracker import Tracker
+
+    mock_ds = MagicMock()
+    MockDeepSort.return_value = mock_ds
+    mock_ds.max_age = 30
+
+    tracker = Tracker(fps=30)
+    raw_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    emb1 = np.array([1.0, 0.0, 0.0])
+    emb2 = np.array([0.0, 1.0, 0.0])
+
+    # Original track
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            1,
+            [100, 80, 50, 120],
+            embedding=emb1,
+        )
+    ]
+
+    tracker.update(
+        _make_det_frame(0, [[100, 80, 150, 200]]),
+        raw_frame,
+    )
+
+    # Disappear
+    mock_ds.update_tracks.return_value = []
+    tracker.update(
+        _make_det_frame(1, []),
+        raw_frame,
+    )
+
+    # Reappear with different embedding
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            99,
+            [100, 80, 50, 120],
+            embedding=emb2,
+        )
+    ]
+
+    result = tracker.update(
+        _make_det_frame(2, [[100, 80, 150, 200]]),
+        raw_frame,
+    )
+
+    assert result.tracks[0].track_id != 1
+
+@patch("services.tracking.tracker.DeepSort")
+def test_reid_expires_after_max_age(MockDeepSort):
+
+    from services.tracking.tracker import Tracker
+
+    mock_ds = MagicMock()
+    MockDeepSort.return_value = mock_ds
+    mock_ds.max_age = 2
+
+    tracker = Tracker(fps=30, max_age=2)
+    raw_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    embedding = np.array([0.1, 0.2, 0.3])
+
+    # Original track
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            1,
+            [100, 80, 50, 120],
+            embedding=embedding,
+        )
+    ]
+
+    tracker.update(
+        _make_det_frame(0, [[100, 80, 150, 200]]),
+        raw_frame,
+    )
+
+    # Track disappears for longer than max_age
+    for fid in range(1, 5):
+
+        mock_ds.update_tracks.return_value = []
+
+        tracker.update(
+            _make_det_frame(fid, []),
+            raw_frame,
+        )
+
+    # Reappears with same embedding
+    mock_ds.update_tracks.return_value = [
+        _make_mock_track(
+            99,
+            [100, 80, 50, 120],
+            embedding=embedding,
+        )
+    ]
+
+    result = tracker.update(
+        _make_det_frame(5, [[100, 80, 150, 200]]),
+        raw_frame,
+    )
+
+    # Should NOT restore old ID
+    assert result.tracks[0].track_id == 99

@@ -59,9 +59,13 @@ class Tracker:
         max_cosine_distance: float = 0.4,
         camera_id: str      = "cam_01",
         event_logger: TrackEventLogger | None = None,
+        reid_similarity_threshold: float = 0.85,  
     ) -> None:
         self.fps       = fps
         self.camera_id = camera_id
+        self.max_age   = max_age   # NEW
+        self.REID_SIMILARITY_THRESHOLD = reid_similarity_threshold  
+
         self._tracker  = DeepSort(
             max_age              = max_age,
             n_init               = n_init,
@@ -74,6 +78,7 @@ class Tracker:
         self._frame_id:        int                      = 0
         self._lifecycle_queue: list[TrackLifecycleEvent] = []
         self._event_logger:    TrackEventLogger | None   = event_logger
+        self._lost_embeddings: dict[int, dict] = {}
 
     # ── Public API ──────────────────────────────────────────────────────────
 
@@ -117,6 +122,38 @@ class Tracker:
                 continue
 
             tid  = int(t.track_id)
+            # ── ReID matching ─────────────────────────────────────
+            # ── ReID matching ─────────────────────────────────────
+    if hasattr(t, "features") and t.features:
+
+     new_embedding = t.features[-1]
+
+    for lost_id, data in list(self._lost_embeddings.items()):
+
+        age = self._frame_id - data["last_seen"]
+
+        if age > self.max_age:
+            continue
+
+        similarity = self._cosine_similarity(
+            new_embedding,
+            data["embedding"],
+        )
+
+        if similarity > self.REID_SIMILARITY_THRESHOLD:
+
+            # Restore original ID
+            tid = lost_id
+            t.track_id = lost_id
+
+            del self._lost_embeddings[lost_id]
+
+            logger.info(
+                f"ReID matched: restored track #{lost_id}"
+            )
+
+            break
+        
             ltwh = t.to_ltwh()
             x1 = float(ltwh[0])
             y1 = float(ltwh[1])
@@ -164,11 +201,19 @@ class Tracker:
             if tid not in current_ids:
                 frames_since = self._frame_id - prev_obj.last_seen_frame
                 if frames_since == 1:
-                    self._emit_lifecycle(
-                        TrackState.LOST, tid,
-                        prev_obj.zones_present,
-                        prev_obj.dwell_time_seconds,
-                    )
+                    track = next((t for t in raw_tracks if int(t.track_id) == tid), None)
+
+                if track is not None and hasattr(track, "features") and track.features:
+                    self._lost_embeddings[tid] = {
+                        "embedding": track.features[-1],
+                        "last_seen": self._frame_id,
+                }
+
+                self._emit_lifecycle(
+                    TrackState.LOST, tid,
+                    prev_obj.zones_present,
+                    prev_obj.dwell_time_seconds,
+                )
                 if frames_since > self._tracker.max_age:
                     self._emit_lifecycle(
                         TrackState.DEAD, tid,
@@ -177,6 +222,14 @@ class Tracker:
                     )
                     del self._active_tracks[tid]
                     logger.info(f"Track DEAD: #{tid} after {prev_obj.dwell_time_seconds:.1f}s")
+        # ── Cleanup expired ReID embeddings ──────────────────
+        expired_ids = [
+            tid for tid, data in self._lost_embeddings.items()
+            if self._frame_id - data["last_seen"] > self.max_age
+        ]
+
+        for tid in expired_ids:
+            del self._lost_embeddings[tid]
 
         return TrackedFrame(
             frame_id     = self._frame_id,
@@ -216,6 +269,20 @@ class Tracker:
         self._lifecycle_queue.append(event)
         if self._event_logger is not None:
             self._event_logger.log_event(event)
+def _cosine_similarity(
+        self,
+        a: np.ndarray,
+        b: np.ndarray,
+    ) -> float:
+
+        norm_product = np.linalg.norm(a) * np.linalg.norm(b)
+
+        if norm_product == 0:
+            return 0.0
+
+        return float(
+        np.dot(a, b) / norm_product
+    )
 
 # ─── CLI Demo ────────────────────────────────────────────────────────────────
 
