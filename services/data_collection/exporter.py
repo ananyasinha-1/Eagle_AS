@@ -11,14 +11,13 @@ logger = logging.getLogger(__name__)
 
 class LLaVAExporter:
     def __init__(self, collector: FeedbackCollector, output_dir: str = "./datasets"):
+        """Initialize exporter with feedback collector and output directory."""
         self.collector = collector
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     async def format_to_llava(self, record: FeedbackRecord) -> LLaVAConversation:
-
-        # Convert FeedbackRecord to LLaVA schema with human/gpt conversation roles.
-        # First turn: human describes original model prediction + observation
+        """Convert FeedbackRecord to LLaVA conversation format with human/gpt roles."""
         
         human_msg = f"Original prediction: {record.original_label}. Captions: {' → '.join(record.caption_sequence)}"
         
@@ -37,7 +36,7 @@ class LLaVAExporter:
         )
 
     async def export_to_jsonl(self, output_filename: str = None) -> tuple:
-       
+        """Stream feedback to JSONL format with async file I/O, return (path, record_count)."""
         if not output_filename:
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             output_filename = f"finetuning_dataset_{timestamp}.jsonl"
@@ -62,7 +61,7 @@ class LLaVAExporter:
             raise
 
     async def export_with_metadata(self, output_filename: str = None) -> dict:
-        
+        """Export JSONL and create metadata file with dataset stats."""
         jsonl_path, record_count = await self.export_to_jsonl(output_filename)
         
         # Metadata: dataset info for training pipeline

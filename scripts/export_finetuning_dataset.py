@@ -14,8 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 async def main(redis_url: str, output_dir: str, output_filename: str = None):
-    
-    #Connect to Redis → load feedback → convert to LLaVA format → write JSONL + metadata.
+    """Orchestrate Redis connection, feedback collection, and dataset export."""
     
     redis_client = None
     try:
@@ -54,8 +53,7 @@ async def main(redis_url: str, output_dir: str, output_filename: str = None):
             logger.info("Redis connection closed")
 
 def parse_args():
-
-    # Parse command-line arguments for export configuration.
+    """Parse command-line arguments for export configuration."""
 
     parser = argparse.ArgumentParser(
         description="Export feedback dataset in LLaVA fine-tuning format",

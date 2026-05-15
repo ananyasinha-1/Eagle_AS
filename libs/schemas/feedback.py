@@ -51,6 +51,7 @@ class FeedbackRequest(BaseModel):
     @field_validator("frame_b64", mode="after")
     @classmethod
     def validate_base64(cls, v):
+        """Validate that frame_b64 is a valid base64 string."""
         try:
             base64.b64decode(v, validate=True)
         except Exception:
@@ -94,6 +95,7 @@ class LLaVAConversation(BaseModel):
     @field_validator("conversations", mode="after")
     @classmethod
     def validate_conversations(cls, v):
+        """Validate conversations alternate between human/system and gpt roles."""
         roles = [conv.from_ for conv in v]
 
         if not roles or roles[0] not in ["human", "system"]:

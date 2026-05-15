@@ -9,11 +9,13 @@ logger = logging.getLogger(__name__)
 
 class FeedbackCollector:
     def __init__(self, redis_client: aioredis.Redis):
+        """Initialize collector with Redis client and key prefixes."""
         self.redis = redis_client
         self.feedback_prefix = "feedback:alert"
         self.index_prefix = "feedback:index:track"
 
     async def store_feedback(self, feedback: FeedbackRequest) -> FeedbackRecord:
+        """Store feedback with atomic deduplication. Updates only human_label/note if alert exists."""
         key = f"{self.feedback_prefix}:{feedback.alert_id}"
         index_key = f"{self.index_prefix}:{feedback.track_id}"
         
@@ -47,6 +49,7 @@ class FeedbackCollector:
             raise
 
     async def get_feedback_by_alert_id(self, alert_id: str) -> Optional[FeedbackRecord]:
+        """Retrieve feedback record by alert ID from Redis."""
         try:
             data = await self.redis.get(f"{self.feedback_prefix}:{alert_id}")
             if not data:
@@ -57,6 +60,7 @@ class FeedbackCollector:
             raise
 
     async def get_feedback_by_track_id(self, track_id: int) -> List[FeedbackRecord]:
+        """Retrieve all feedback for a track using batch pipeline fetch (no N+1 queries)."""
         try:
             alert_ids = await self.redis.smembers(f"{self.index_prefix}:{track_id}")
             if not alert_ids:
@@ -73,6 +77,7 @@ class FeedbackCollector:
             raise
 
     async def get_all_feedback(self, batch_size: int = 1000) -> AsyncIterator[FeedbackRecord]:
+        """Stream all feedback records using SCAN cursor with async iteration (memory efficient)."""
         try:
             cursor = 0
             while True:
@@ -92,6 +97,7 @@ class FeedbackCollector:
             raise
 
     async def delete_feedback(self, alert_id: str) -> bool:
+        """Delete feedback and index entry atomically via transaction."""
         try:
             data = await self.redis.get(f"{self.feedback_prefix}:{alert_id}")
             if not data:

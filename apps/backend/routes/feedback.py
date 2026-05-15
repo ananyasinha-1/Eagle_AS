@@ -20,7 +20,7 @@ async def submit_feedback(
     feedback: FeedbackRequest,
     collector: Annotated[FeedbackCollector, Depends(get_feedback_collector)]
 ):
-    #Accept human corrections → validate → store in Redis.
+    """Accept human corrections for alerts, validate, and store in Redis."""
 
     try:
         record = await collector.store_feedback(feedback)
