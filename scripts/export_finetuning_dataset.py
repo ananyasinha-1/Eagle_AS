@@ -49,7 +49,7 @@ async def main(redis_url: str, output_dir: str, output_filename: str = None):
     finally:
         # Cleanup Redis connection
         if redis_client:
-            await redis_client.close()
+            await redis_client.aclose()
             logger.info("Redis connection closed")
 
 def parse_args():

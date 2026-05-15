@@ -1,0 +1,7 @@
+{
+  "dataset_file": "finetuning_dataset_20260515_120443.jsonl",
+  "export_timestamp": "2026-05-15T12:04:43.137597+00:00",
+  "record_count": 3,
+  "format": "LLaVA conversation",
+  "image_dir": "frames/"
+}

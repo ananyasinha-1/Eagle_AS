@@ -45,7 +45,7 @@ class LLaVAExporter:
         record_count = 0
         
         try:
-            async with aiofiles.open(output_path, 'w') as f:
+            async with aiofiles.open(output_path, 'w', encoding='utf-8') as f:
                 async for record in self.collector.get_all_feedback():
                     llava_record = await self.format_to_llava(record)
                     await f.write(llava_record.model_dump_json() + '\n')
@@ -74,7 +74,7 @@ class LLaVAExporter:
         }
         
         metadata_path = self.output_dir / f"{Path(jsonl_path).stem}_metadata.json"
-        async with aiofiles.open(metadata_path, 'w') as f:
+        async with aiofiles.open(metadata_path, 'w', encoding='utf-8') as f:
             await f.write(json.dumps(metadata, indent=2))
         
         logger.info(f"Metadata written to {metadata_path}")
