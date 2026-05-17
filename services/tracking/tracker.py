@@ -72,6 +72,18 @@ class Tracker:
         reid_similarity_threshold: float = 0.85,
         max_interpolation_gap: int = 10,  # Added with a sensible default
     ) -> None:
+        """Initialize the tracker with DeepSort hyperparameters and interpolation constraints.
+
+        Args:
+            fps: Frame rate of the video source.
+            max_age: Maximum frames to keep a lost track alive before dropping it.
+            n_init: Number of consecutive frames needed to confirm a track.
+            max_cosine_distance: Maximum threshold for visual appearance feature matching.
+            camera_id: Unique identifier string for the source camera.
+            event_logger: Optional logger interface for tracking state lifecycle events.
+            reid_similarity_threshold: Minimum confidence needed to reconnect an ID via ReID.
+            max_interpolation_gap: Maximum frame gap size allowed to fill missing trajectories.
+        """
         self.fps = fps
         self.camera_id = camera_id
         self.max_age = max_age  # NEW

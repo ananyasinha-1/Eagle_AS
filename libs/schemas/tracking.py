@@ -14,12 +14,14 @@ class TrackState(str, Enum):
     DEAD     = "DEAD"      # expired — will not be reassigned
 
 class TrajectoryPoint(BaseModel):
+    """A single spatial-temporal coordinate snapshot representing an object's historical location."""
+    x: float
     x: float
     y: float
     frame_id: int
-    interpolated: bool = False  # Added: track whether the point was synthesized
-    w: Optional[float] = None   # Added: bounding box width (optional)
-    h: Optional[float] = None   # Added: bounding box height (optional)
+    interpolated: bool = False
+    w: Optional[float] = None
+    h: Optional[float] = None
 
 class TrackedObject(BaseModel):
     track_id: int                          = Field(..., description="Persistent ID across frames")
