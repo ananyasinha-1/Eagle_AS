@@ -186,18 +186,23 @@ class Tracker:
                 self._emit_lifecycle(TrackState.BORN, tid, zones, 0.0)
                 logger.info(f"Track BORN: #{tid} in zones={zones}")
 
-            # ── Dwell time ────────────────────────────────────────────────
+            # ── Base Setup & Gap Calculation ──────────────────────────────
             prev = self._active_tracks.get(tid)
-            dwell_frames = (prev.dwell_time_frames + 1) if prev else 1
+            prev_traj = prev.trajectory if prev else []
+            
+            # Compute gap_frames early so both Dwell Time and Trajectory can use it
+            gap_frames = max(0, self._frame_id - prev.last_seen_frame - 1) if prev is not None else 0
+
+            # ── Dwell time ────────────────────────────────────────────────
+            if prev:
+                # Add historic frames, the current frame, and the occlusion gap
+                dwell_frames = prev.dwell_time_frames + 1 + gap_frames
+            else:
+                dwell_frames = 1
+            
             dwell_secs = dwell_frames / self.fps
 
             # ── Trajectory ────────────────────────────────────────────────
-            prev_traj = prev.trajectory if prev else []
-            gap_frames = 0
-
-            if prev is not None:
-                gap_frames = max(0, self._frame_id - prev.last_seen_frame - 1)
-
             interpolated_points = []
             max_gap = self.max_interpolation_gap  # <-- Replaced self.config string access
 
@@ -218,6 +223,7 @@ class Tracker:
                     # Current width and height
                     new_pos["w"] = x2 - x1
                     new_pos["h"] = y2 - y1
+                
                 # Synthesize intermediate points and wrap them into TrajectoryPoint instances
                 interpolated_points = [
                     TrajectoryPoint(
@@ -230,6 +236,7 @@ class Tracker:
                     )
                     for p in _interpolate_trajectory(last_pos, new_pos, gap_frames, prev.last_seen_frame + 1)
                 ] 
+            
             # Generate the current frame real point
             new_point = TrajectoryPoint(x=cx, y=cy, frame_id=self._frame_id)
             
@@ -294,6 +301,7 @@ class Tracker:
                     del self._active_tracks[tid]
                     self._active_embeddings.pop(tid, None)
                     logger.info(f"Track DEAD: #{tid} after {prev_obj.dwell_time_seconds:.1f}s")
+                    
         # ── Cleanup expired ReID embeddings ──────────────────
         expired_ids = [
             tid
@@ -413,10 +421,6 @@ def main() -> None:
         writer.release()
     cv2.destroyAllWindows()
 
-
-if __name__ == "__main__":
-    main()
-
 def _interpolate_trajectory(
     last_pos: dict, 
     new_pos: dict, 
@@ -448,3 +452,6 @@ def _interpolate_trajectory(
         interpolated_points.append(point)
         
     return interpolated_points
+
+if __name__ == "__main__":
+    main()
