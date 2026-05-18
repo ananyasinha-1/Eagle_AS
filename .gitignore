@@ -1,2 +1,11 @@
 __pycache__/
+*.pyc# Backup files
+*.bak
+*.backup
+
+# Nested repositories (if accidentally cloned inside)
+*/.git/
+
+# Python cache
+__pycache__/
 *.pyc
