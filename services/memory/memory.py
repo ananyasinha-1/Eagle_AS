@@ -254,11 +254,12 @@ class MemoryStore:
     exposes the methods used by unit tests and the pipeline.
     """
 
-    def __init__(self, redis_client=None, prefix: str = "mem") -> None:
+    def __init__(self, redis_client=None, prefix: str = "mem", camera_id: str = None) -> None:
         import redis
 
         self._r = redis_client or redis.Redis()
         self._prefix = prefix
+        self._camera_id = camera_id
 
     def _events_key(self, track_id: int) -> str:
         return f"{self._prefix}:events:{track_id}"
