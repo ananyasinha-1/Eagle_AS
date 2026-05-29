@@ -4,7 +4,9 @@ All tests run without Ollama, GPU, or real API keys.
 Uses MockVLMCaptioner + MockLLMReasoner + fakeredis.
 """
 from __future__ import annotations
-import sys, os, time
+import sys
+import os
+import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest

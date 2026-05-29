@@ -26,7 +26,6 @@ from libs.schemas.memory   import ActionHint, TrackSequence
 from libs.schemas.reasoning import ReasoningResult, GroundingResult
 from services.memory.ring_buffer import MemoryStore
 from services.reasoning.dedup     import AlertDeduplicator
-from services.reasoning.prompts   import GROUNDING_PROMPT
 from services.reasoning.vlm       import BaseCaptioner, get_captioner
 from services.reasoning.llm       import BaseLLMReasoner, get_reasoner
 

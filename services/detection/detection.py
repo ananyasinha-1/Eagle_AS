@@ -13,7 +13,6 @@ Usage (API):
 from __future__ import annotations
 import argparse
 import logging
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -23,11 +22,9 @@ from libs.schemas.detection import DetectionFrameSchema as DetectionFrame, Detec
 from services.detection.zones import get_zones, get_zones_for_point
 from services.reasoning.scene_graph import SceneGraphBuilder
 from services.reasoning.prompts import build_reasoning_prompt
-from libs.schemas.detection import DetectionFrameSchema, DetectionSchema, BoundingBox
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from services.detection.zones import DEFAULT_ZONES, get_zones_for_point
 from libs.config.settings import settings
 
 

@@ -4,7 +4,9 @@ All Redis tests use fakeredis — no real Redis server needed.
 """
 from __future__ import annotations
 
-import sys, os, time
+import sys
+import os
+import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
@@ -187,7 +189,7 @@ def test_get_sequence_last_n(store):
 
 def test_zone_entry_hint():
     from services.memory.action_classifier import classify_action
-    from libs.schemas.tracking import TrackedObject, TrackState, TrajectoryPoint
+    from libs.schemas.tracking import TrackedObject, TrackState
 
     obj = TrackedObject(
         track_id=1, label="person", bbox=[100,80,200,300],
