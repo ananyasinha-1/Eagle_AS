@@ -67,6 +67,10 @@ class Detector:
         confidence_threshold: float = settings.detection_confidence_threshold,
         device: str = settings.detector_device,
     ) -> None:
+        if not 0.0 <= confidence_threshold <= 1.0:
+            raise ValueError(
+                f"confidence_threshold must be between 0.0 and 1.0, got {confidence_threshold}"
+            )
         logger.info(f"Loading YOLO model: {model_name} on {device}")
         self.model = YOLO(model_name)
         self.conf = confidence_threshold
@@ -83,7 +87,7 @@ class Detector:
         Returns:
             DetectionFrame with all detected objects and zone memberships.
         """
-        results = self.model(frame, conf=self.conf, device=self.device, verbose=False)
+        results = self.model(frame, device=self.device, verbose=False)
         detections: list[Detection] = []
 
         active_zones = get_zones()
