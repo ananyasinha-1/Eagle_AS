@@ -72,6 +72,81 @@ class Detector:
         self.model = YOLO(model_name)
         self.conf = confidence_threshold
         self.device = device
+        
+        logger.info(f"Initializing Detector with config: model={model_name}, device={device}")
+        self._load_model_with_fallback()
+
+    def _load_model_with_fallback(self) -> None:
+        """
+        Implements smart, automatic model format resolution and fallback routing.
+        First attempts to locate and load a TensorRT engine if CUDA hardware is available,
+        otherwise falls back gracefully to ONNX or PyTorch models.
+        """
+        path = Path(self.model_path)
+        base_name = path.stem
+        parent_dir = path.parent
+        
+        # Check for a matching .engine file in the same directory
+        engine_path = parent_dir / f"{base_name}.engine"
+        
+        # Determine if we should attempt to load a TensorRT engine
+        should_try_engine = self.model_path.endswith(".engine") or engine_path.exists()
+        
+        if should_try_engine:
+            resolved_engine_path = self.model_path if self.model_path.endswith(".engine") else str(engine_path)
+            
+            # TensorRT requires an NVIDIA GPU with CUDA
+            if "cuda" in self.device.lower():
+                try:
+                    logger.info(f"Attempting optimized TensorRT engine load: {resolved_engine_path}")
+                    self.load_tensorrt_model(resolved_engine_path)
+                    return
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to load TensorRT engine '{resolved_engine_path}': {e}. "
+                        f"Triggering automatic fallback to standard model format..."
+                    )
+            else:
+                logger.warning(
+                    f"TensorRT engine '{resolved_engine_path}' cannot run on non-CUDA device '{self.device}'. "
+                    f"Triggering automatic fallback to standard model format..."
+                )
+
+        # Main loader routing based on model extension
+        if self.model_path.endswith(".onnx"):
+            self.load_onnx_model(self.model_path)
+        elif self.model_path.endswith(".pt"):
+            self.load_pytorch_model(self.model_path)
+        else:
+            # If explicitly requested .engine failed or file is generic, seek compatible counterpart
+            pt_path = parent_dir / f"{base_name}.pt"
+            onnx_path = parent_dir / f"{base_name}.onnx"
+            
+            if pt_path.exists():
+                logger.info(f"Auto-fallback: Loading counterpart PyTorch model: {pt_path}")
+                self.load_pytorch_model(str(pt_path))
+            elif onnx_path.exists():
+                logger.info(f"Auto-fallback: Loading counterpart ONNX model: {onnx_path}")
+                self.load_onnx_model(str(onnx_path))
+            else:
+                logger.info(f"No counterpart found. Loading default fallback model path: {self.model_path}")
+                self.load_pytorch_model(self.model_path)
+
+    def load_tensorrt_model(self, model_path: str) -> None:
+        """Loads a TensorRT engine model using the Ultralytics YOLO framework."""
+        logger.info(f"Successfully routed to load_tensorrt_model: {model_path}")
+        self.model = YOLO(model_path, task="detect")
+
+    def load_onnx_model(self, model_path: str) -> None:
+        """Loads an ONNX model using the Ultralytics YOLO framework."""
+        logger.info(f"Successfully routed to load_onnx_model: {model_path}")
+        self.model = YOLO(model_path, task="detect")
+
+    def load_pytorch_model(self, model_path: str) -> None:
+        """Loads a PyTorch (.pt) model using the Ultralytics YOLO framework."""
+        logger.info(f"Successfully routed to load_pytorch_model: {model_path}")
+        self.model = YOLO(model_path, task="detect")
+
 
     def detect(self, frame: np.ndarray, frame_id: int = 0) -> DetectionFrame:
         """
